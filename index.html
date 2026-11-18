@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+</style>
+<title>Zeit-Umwandler</title>
+<style>
+/* Layout: eine ruhige Spalte. Oben Einstellungen und Merkhilfe (Einheiten-Kette), darunter fünf Aufgabenkarten, unten Prüfen / Neue Aufgaben. */
+:root{
+  --bg:#eef2f7; --surface:#ffffff; --ink:#172033; --muted:#53607a; --line:#d3dbe7;
+  --accent:#1d5fd1; --accent-ink:#ffffff; --chip:#e3eaf6;
+  --ok:#14703f; --ok-bg:#e1f3e8; --bad:#a8281f; --bad-bg:#fbe9e7; --need:#c98a00;
+  --font:Arial,Helvetica,sans-serif;
+  --l1:#5ccf7e; --l2:#ffd83d; --l3:#ff9a3c;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1624; --surface:#172238; --ink:#e8edf6; --muted:#9db0cf; --line:#2c3b58;
+    --accent:#6ea3ff; --accent-ink:#0b1220; --chip:#22314e;
+    --ok:#68d69e; --ok-bg:#12331f; --bad:#ff948b; --bad-bg:#3b1b1b; --need:#f0b840;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1624; --surface:#172238; --ink:#e8edf6; --muted:#9db0cf; --line:#2c3b58;
+  --accent:#6ea3ff; --accent-ink:#0b1220; --chip:#22314e;
+  --ok:#68d69e; --ok-bg:#12331f; --bad:#ff948b; --bad-bg:#3b1b1b; --need:#f0b840;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font); font-size:18px; line-height:1.4;
+  padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+button,input{font-family:var(--font)}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{margin:0;font-size:34px;line-height:1.15;text-wrap:balance}
+.lead{margin:6px 0 0;color:var(--muted);font-size:19px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:16px}
+.row{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.lbl{font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:bold}
+
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{
+  min-height:48px;padding:8px 16px;border-radius:10px;border:2px solid var(--line);background:var(--bg);
+  color:var(--ink);font-size:18px;font-weight:bold;cursor:pointer
+}
+.seg button[data-level]{color:#172033;border-color:transparent;opacity:.6}
+.seg button[data-level="1"]{background:var(--l1)}
+.seg button[data-level="2"]{background:var(--l2)}
+.seg button[data-level="3"]{background:var(--l3)}
+.seg button[aria-pressed="true"]{opacity:1;border-color:var(--ink);box-shadow:0 0 0 3px var(--surface),0 0 0 6px var(--ink)}
+.seg small{display:block;font-weight:normal;font-size:13px;opacity:.9}
+
+.sw{display:flex;align-items:center;gap:12px;min-height:48px;background:none;border:0;color:var(--ink);font-size:18px;cursor:pointer;padding:0;text-align:left}
+.track{width:56px;height:32px;border-radius:16px;background:var(--line);position:relative;flex:none;transition:background .15s}
+.track::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:var(--surface);transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.sw[aria-checked="true"] .track{background:var(--accent)}
+.sw[aria-checked="true"] .track::after{transform:translateX(24px)}
+
+.ladder{display:flex;align-items:center;gap:6px;min-width:0}
+.pill{min-width:48px;padding:8px 10px;text-align:center;background:var(--chip);border-radius:10px;font-weight:bold;font-size:20px}
+.link{flex:1 1 52px;min-width:44px;display:flex;flex-direction:column;align-items:center;font-size:16px;color:var(--muted);font-weight:bold}
+.link b{width:100%;text-align:center;border-bottom:2px solid var(--line);padding-bottom:2px}
+.link i{font-style:normal;padding-top:2px}
+.hint{margin:0;color:var(--muted);font-size:16px}
+
+ol.tasks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.task{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:16px;display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.task.ok{border-color:var(--ok)}
+.task.bad{border-color:var(--bad)}
+.no{flex:none;width:36px;height:36px;border-radius:50%;background:var(--chip);display:grid;place-items:center;font-weight:bold;font-size:18px}
+.body{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.eq{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:28px}
+.left{font-weight:bold}
+.fld{display:inline-flex;align-items:center;gap:8px}
+.fld input{
+  width:5.2em;height:56px;font-size:28px;text-align:center;border:2px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--ink);padding:0 8px
+}
+.fld input:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-color:var(--accent)}
+.fld input.need{border-color:var(--need)}
+.fld input.right{border-color:var(--ok);background:var(--ok-bg)}
+.fld input.wrong{border-color:var(--bad);background:var(--bad-bg)}
+.unit{font-size:26px}
+.fb{border-radius:10px;padding:12px 14px;font-size:18px}
+.fb.ok{background:var(--ok-bg);color:var(--ok)}
+.fb.bad{background:var(--bad-bg)}
+.fb strong{display:block;font-size:19px}
+.fb.bad strong{color:var(--bad)}
+.fb p{margin:6px 0 0;color:var(--ink)}
+.fb .sol{white-space:nowrap}
+
+.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{min-height:56px;padding:10px 26px;border-radius:12px;border:2px solid var(--accent);font-size:20px;font-weight:bold;cursor:pointer;background:var(--surface);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.seg button:focus-visible,.sw:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.result{font-size:22px;font-weight:bold;min-height:1.4em}
+.result.warn{color:var(--need)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:18px;align-items:start}
+.main{display:flex;flex-direction:column;gap:18px;min-width:0}
+.side{position:sticky;top:16px}
+.cols.nohelp{grid-template-columns:minmax(0,1fr)}
+.vlad{display:flex;flex-direction:column;align-items:center;gap:6px}
+.vlad .pill{width:100%}
+.vlink{display:flex;gap:18px;font-weight:bold;color:var(--muted);font-size:17px}
+.vlink b,.vlink i{font-style:normal}
+@media (max-width:760px){.cols{grid-template-columns:minmax(0,1fr)}.side{position:static}}
+@media (max-width:480px){
+  h1{font-size:28px}
+  .eq{font-size:24px}
+  .fld input{font-size:24px;height:52px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Zeit umwandeln</h1>
+    <p class="lead">Wandle die Zeit um. Schreibe nur die Zahl in das Feld.</p>
+  </header>
+
+  <section class="panel" aria-label="Einstellungen">
+    <div class="row">
+      <div>
+        
+        <div class="seg" id="levels" role="group" aria-label="Level">
+          <button type="button" data-level="1" aria-pressed="true">Level 1</button>
+          <button type="button" data-level="2" aria-pressed="false">Level 2</button>
+          <button type="button" data-level="3" aria-pressed="false">Level 3</button>
+        </div>
+      </div>
+      <button type="button" class="sw" id="expert" role="switch" aria-checked="false">
+        <span class="track" aria-hidden="true"></span><span>Expertenmodus</span>
+      </button>
+    </div>
+  </section>
+
+  <div class="cols" id="cols">
+    <div class="main">
+      <ol class="tasks" id="tasks"></ol>
+      <div class="actions">
+        <button type="button" class="btn primary" id="check">Prüfen</button>
+        <button type="button" class="btn" id="fresh">Neue Aufgaben</button>
+        <button type="button" class="btn" id="help" aria-expanded="false" aria-controls="side" hidden>Merkhilfe anzeigen</button>
+      </div>
+      <div class="result" id="result" role="status" aria-live="polite"></div>
+    </div>
+    <aside class="panel side" id="side" aria-label="Merkhilfe">
+      <div class="lbl">Merkhilfe</div>
+      <div class="vlad" aria-hidden="true">
+        <span class="pill xp">d</span>
+        <span class="vlink xp"><b>↓ · 24</b><i>↑ : 24</i></span>
+        <span class="pill">h</span>
+        <span class="vlink"><b>↓ · 60</b><i>↑ : 60</i></span>
+        <span class="pill">min</span>
+        <span class="vlink"><b>↓ · 60</b><i>↑ : 60</i></span>
+        <span class="pill">s</span>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function(){
+  var S={level:1,expert:false,help:false,checked:false,tasks:[]};
+  try{
+    var sv=JSON.parse(localStorage.getItem('zeit-umwandler')||'{}');
+    if(sv.level>=1&&sv.level<=3)S.level=sv.level;
+    S.expert=!!sv.expert;
+  }catch(e){}
+  function save(){try{localStorage.setItem('zeit-umwandler',JSON.stringify({level:S.level,expert:S.expert}))}catch(e){}}
+
+  var ri=function(a,b){return Math.floor(Math.random()*(b-a+1))+a};
+  var pick=function(a){return a[ri(0,a.length-1)]};
+  var shuffle=function(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=ri(0,i),t=a[i];a[i]=a[j];a[j]=t}return a};
+  var nb=function(n){return n>=10000?String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '):String(n)};
+  var MINS=[10,15,20,30,40,45,50], QH=[15,30,45], DH=[3,6,8,12,15,18];
+
+  var G={
+    h2min:function(L){
+      if(L<3){var h=L==1?ri(1,5):ri(6,12);
+        return{left:h+' h',ans:[{v:h*60,u:'min'}],expl:'1 h = 60 min. '+h+' h = '+h+' · 60 min = '+nb(h*60)+' min.'}}
+      var h3=ri(1,5),m=pick(MINS),t=h3*60+m;
+      return{left:h3+' h '+m+' min',ans:[{v:t,u:'min'}],expl:h3+' h = '+h3+' · 60 min = '+nb(h3*60)+' min. Dazu kommen '+m+' min: '+nb(h3*60)+' min + '+m+' min = '+t+' min.'}
+    },
+    min2h:function(L){
+      if(L<3){var h=L==1?ri(1,5):ri(6,12),t=h*60;
+        return{left:nb(t)+' min',ans:[{v:h,u:'h'}],expl:'60 min = 1 h. '+nb(t)+' : 60 = '+h+'. Also '+nb(t)+' min = '+h+' h.'}}
+      var h3=ri(1,5),m=pick(MINS),t3=h3*60+m;
+      return{left:t3+' min',ans:[{v:h3,u:'h'},{v:m,u:'min'}],expl:h3+' h sind '+h3*60+' min. '+t3+' min − '+h3*60+' min = '+m+' min. Also '+t3+' min = '+h3+' h '+m+' min.'}
+    },
+    min2s:function(L){
+      if(L<3){var m=L==1?ri(1,5):ri(6,12);
+        return{left:m+' min',ans:[{v:m*60,u:'s'}],expl:'1 min = 60 s. '+m+' min = '+m+' · 60 s = '+nb(m*60)+' s.'}}
+      var m3=ri(1,9),s=pick(MINS),t=m3*60+s;
+      return{left:m3+' min '+s+' s',ans:[{v:t,u:'s'}],expl:m3+' min = '+m3+' · 60 s = '+m3*60+' s. '+m3*60+' s + '+s+' s = '+t+' s.'}
+    },
+    s2min:function(L){
+      if(L<3){var m=L==1?ri(1,5):ri(6,12),t=m*60;
+        return{left:t+' s',ans:[{v:m,u:'min'}],expl:'60 s = 1 min. '+t+' : 60 = '+m+'. Also '+t+' s = '+m+' min.'}}
+      var m3=ri(1,9),r=pick(MINS),t3=m3*60+r;
+      return{left:t3+' s',ans:[{v:m3,u:'min'},{v:r,u:'s'}],expl:m3+' min = '+m3*60+' s. '+t3+' s − '+m3*60+' s = '+r+' s. Also '+t3+' s = '+m3+' min '+r+' s.'}
+    },
+    d2h:function(L){
+      if(L<3){var d=L==1?ri(1,3):ri(4,10);
+        return{left:d+' d',ans:[{v:d*24,u:'h'}],expl:'1 d = 24 h. '+d+' d = '+d+' · 24 h = '+d*24+' h.'}}
+      var d3=ri(1,4),h=pick(DH),t=d3*24+h;
+      return{left:d3+' d '+h+' h',ans:[{v:t,u:'h'}],expl:d3+' d = '+d3+' · 24 h = '+d3*24+' h. '+d3*24+' h + '+h+' h = '+t+' h.'}
+    },
+    h2d:function(L){
+      if(L<3){var d=L==1?ri(1,3):ri(4,10),t=d*24;
+        return{left:t+' h',ans:[{v:d,u:'d'}],expl:'24 h = 1 d. '+t+' : 24 = '+d+'. Also '+t+' h = '+d+' d.'}}
+      var d3=ri(1,4),r=pick(DH),t3=d3*24+r;
+      return{left:t3+' h',ans:[{v:d3,u:'d'},{v:r,u:'h'}],expl:d3+' d sind '+d3*24+' h. '+t3+' h − '+d3*24+' h = '+r+' h. Also '+t3+' h = '+d3+' d '+r+' h.'}
+    },
+    h2s:function(L){
+      if(L<3){var h=L==1?ri(1,3):ri(4,8);
+        return{left:h+' h',ans:[{v:h*3600,u:'s'}],expl:'1 h = 60 min und 1 min = 60 s. Also 1 h = 60 · 60 s = 3600 s. '+h+' h = '+h+' · 3600 s = '+nb(h*3600)+' s.'}}
+      var h3=ri(1,3),m=pick(QH),t=h3*3600+m*60;
+      return{left:h3+' h '+m+' min',ans:[{v:t,u:'s'}],expl:h3+' h = '+h3+' · 3600 s = '+nb(h3*3600)+' s. '+m+' min = '+m+' · 60 s = '+m*60+' s. '+nb(h3*3600)+' s + '+m*60+' s = '+nb(t)+' s.'}
+    },
+    s2h:function(L){
+      if(L<3){var h=L==1?ri(1,3):ri(4,8),t=h*3600;
+        return{left:nb(t)+' s',ans:[{v:h,u:'h'}],expl:'3600 s = 1 h. '+nb(t)+' : 3600 = '+h+'. Also '+nb(t)+' s = '+h+' h.'}}
+      var h3=ri(1,3),m=pick(QH),t3=h3*3600+m*60;
+      return{left:nb(t3)+' s',ans:[{v:h3,u:'h'},{v:m,u:'min'}],expl:h3+' h = '+nb(h3*3600)+' s. '+nb(t3)+' s − '+nb(h3*3600)+' s = '+m*60+' s. '+m*60+' s : 60 = '+m+' min. Also '+nb(t3)+' s = '+h3+' h '+m+' min.'}
+    }
+  };
+  var BASE=['h2min','min2h','min2s','s2min'], EXP=['d2h','h2d','h2s','s2h'];
+
+  function makeTasks(){
+    var types;
+    if(!S.expert){types=shuffle(BASE).slice(0,3)}
+    else{types=shuffle(shuffle(EXP).slice(0,2).concat(shuffle(BASE).slice(0,1)))}
+    var out=[];
+    types.forEach(function(t){
+      var g,n=0,key;
+      do{g=G[t](S.level);key=g.left+'>'+g.ans[0].u;n++}
+      while(n<30&&out.some(function(o){return o.key===key}));
+      g.key=key;out.push(g);
+    });
+    return out;
+  }
+
+  var list=document.getElementById('tasks'), res=document.getElementById('result');
+  var btnCheck=document.getElementById('check'), btnFresh=document.getElementById('fresh');
+
+  function render(){
+    S.checked=false;
+    list.innerHTML='';
+    S.tasks.forEach(function(t,i){
+      var li=document.createElement('li');
+      li.className='task';li.id='task'+i;
+      var fields=t.ans.map(function(a,j){
+        return '<label class="fld"><input id="in'+i+'-'+j+'" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" enterkeyhint="next" aria-label="Aufgabe '+(i+1)+', Antwort in '+a.u+'"><span class="unit">'+a.u+'</span></label>';
+      }).join('');
+      li.innerHTML='<span class="no">'+(i+1)+'</span><div class="body"><div class="eq"><span class="left">'+t.left+'</span><span>=</span>'+fields+'</div><div class="fb" hidden></div></div>';
+      list.appendChild(li);
+    });
+    res.textContent='';res.className='result';
+    btnCheck.disabled=false;btnCheck.className='btn primary';btnFresh.className='btn';
+  }
+
+  function inputs(){return Array.prototype.slice.call(list.querySelectorAll('input'))}
+  function parse(s){
+    s=s.replace(/[\s'’`.,  ]/g,'');
+    return /^\d+$/.test(s)?Number(s):NaN;
+  }
+
+  function check(){
+    if(S.checked)return;
+    var all=inputs(), first=null;
+    all.forEach(function(inp){
+      var empty=!inp.value.trim();
+      inp.classList.toggle('need',empty);
+      if(empty&&!first)first=inp;
+    });
+    if(first){
+      res.textContent='Fülle zuerst alle Felder aus.';res.className='result warn';first.focus();return;
+    }
+    var right=0;
+    S.tasks.forEach(function(t,i){
+      var ok=true;
+      t.ans.forEach(function(a,j){
+        var inp=document.getElementById('in'+i+'-'+j);
+        var good=parse(inp.value)===a.v;
+        if(!good)ok=false;
+        inp.classList.remove('need');
+        inp.classList.add(good?'right':'wrong');
+        inp.readOnly=true;
+      });
+      var li=document.getElementById('task'+i), fb=li.querySelector('.fb');
+      li.classList.add(ok?'ok':'bad');
+      fb.hidden=false;
+      if(ok){right++;fb.className='fb ok';fb.innerHTML='<strong>Richtig!</strong>'}
+      else{
+        var sol=t.ans.map(function(a){return nb(a.v)+' '+a.u}).join(' ');
+        fb.className='fb bad';
+        fb.innerHTML='<strong>Nicht ganz. Richtig ist: <span class="sol">'+t.left+' = '+sol+'</span></strong><p>'+t.expl+'</p>';
+      }
+    });
+    S.checked=true;
+    var msg=right===3?'3 von 3 richtig. Super gemacht!':right+' von 3 richtig.'+(right>=2?' Gut gemacht!':' Lies die Erklärungen und versuche es nochmals.');
+    res.textContent=msg;res.className='result';
+    btnCheck.disabled=true;btnCheck.className='btn';btnFresh.className='btn primary';
+    res.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+
+  function fresh(){S.tasks=makeTasks();render();var f=list.querySelector('input');if(f&&window.matchMedia('(pointer:fine)').matches)f.focus()}
+
+  function syncUI(){
+    Array.prototype.forEach.call(document.querySelectorAll('#levels button'),function(b){
+      b.setAttribute('aria-pressed',String(Number(b.dataset.level)===S.level));
+    });
+    var sw=document.getElementById('expert');
+    sw.setAttribute('aria-checked',String(S.expert));
+    Array.prototype.forEach.call(document.querySelectorAll('.xp'),function(el){el.hidden=!S.expert});
+    var showHelp=S.level===1||S.help;
+    document.getElementById('side').hidden=!showHelp;
+    document.getElementById('cols').classList.toggle('nohelp',!showHelp);
+    var hb=document.getElementById('help');
+    hb.hidden=S.level===1;
+    hb.textContent=S.help?'Merkhilfe ausblenden':'Merkhilfe anzeigen';
+    hb.setAttribute('aria-expanded',String(showHelp));
+  }
+
+  document.getElementById('levels').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-level]');if(!b)return;
+    S.level=Number(b.dataset.level);S.help=false;save();syncUI();fresh();
+  });
+  document.getElementById('expert').addEventListener('click',function(){
+    S.expert=!S.expert;save();syncUI();fresh();
+  });
+  document.getElementById('help').addEventListener('click',function(){S.help=!S.help;syncUI()});
+  btnCheck.addEventListener('click',check);
+  btnFresh.addEventListener('click',fresh);
+  list.addEventListener('keydown',function(e){
+    if(e.key!=='Enter'||e.target.tagName!=='INPUT')return;
+    e.preventDefault();
+    var all=inputs(),i=all.indexOf(e.target);
+    if(i<all.length-1)all[i+1].focus();else check();
+  });
+  list.addEventListener('input',function(e){
+    e.target.classList.remove('need');
+    if(res.classList.contains('warn')){res.textContent='';res.className='result'}
+  });
+
+  syncUI();S.tasks=makeTasks();render();
+})();
+</script>
+</body>
+</html>
